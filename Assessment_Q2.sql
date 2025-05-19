@@ -1,25 +1,37 @@
 WITH monthly_transactions AS (
-    SELECT 
+    SELECT
         owner_id,
         DATE_FORMAT(transaction_date, '%Y-%m') AS year_month, -- Extract year and month
-        COUNT(*) AS transactions_per_month -- Count transactions per month
+        COUNT(*) AS transactions_per_month -- Count transactions for that month
     FROM savings_savingsaccount
     GROUP BY owner_id, year_month
-), avg_transactions AS (
-    SELECT 
+),
+
+avg_transactions AS (
+    SELECT
         owner_id,
-        AVG(transactions_per_month) AS avg_monthly_transactions -- Average transactions per month per user
+        AVG(transactions_per_month) AS avg_monthly_transactions -- Average monthly transactions per user
     FROM monthly_transactions
     GROUP BY owner_id
+),
+
+categorized_users AS (
+    SELECT
+        owner_id,
+        CASE
+            WHEN avg_monthly_transactions >= 10 THEN 'High Frequency'
+            WHEN avg_monthly_transactions BETWEEN 5 AND 9 THEN 'Medium Frequency'
+            WHEN avg_monthly_transactions > 0 AND avg_monthly_transactions < 5 THEN 'Low Frequency'
+            ELSE 'No Activity'
+        END AS frequency_category,
+        avg_monthly_transactions
+    FROM avg_transactions
 )
+
 SELECT
-    CASE
-        WHEN avg_monthly_transactions >= 10 THEN 'High Frequency' -- 10 or more transactions
-        WHEN avg_monthly_transactions BETWEEN 5 AND 9 THEN 'Medium Frequency' -- 5-9 transactions
-        WHEN avg_monthly_transactions > 0 AND avg_monthly_transactions < 5 THEN 'Low Frequency' -- 1-4 transactions
-        ELSE 'No Activity' -- Zero transactions
-    END AS transaction_frequency_category,
+    frequency_category,
     COUNT(owner_id) AS customer_count, -- Number of users in each category
-    AVG(avg_monthly_transactions) AS average_transactions -- Average transactions in each category
-FROM avg_transactions
-GROUP BY transaction_frequency_category;
+    ROUND(AVG(avg_monthly_transactions), 2) AS avg_transactions_per_month -- Avg monthly transactions in each category
+FROM categorized_users
+GROUP BY frequency_category;
+
